@@ -8,6 +8,9 @@ export default antfu({
     html: true,
     markdown: true,
   },
+  ignores: [
+    './*.md',
+  ],
 }).overrideRules({
   'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
   'vue/brace-style': ['error', '1tbs', { allowSingleLine: true }],

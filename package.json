@@ -11,7 +11,7 @@
     "dev": "pnpm -r --parallel run dev",
     "test": "pnpm --filter promise-portal-vue2 test",
     "build": "pnpm --filter promise-portal-vue2 run build",
-    "build:playground": "pnpm --filter play-vue2 run build",
+    "build:playground": "pnpm --filter play run build",
     "publish": "pnpm --filter promise-portal-vue2 publish",
     "clean": "rm -rf ./**/node_modules; rm -rf ./**/dist"
   },

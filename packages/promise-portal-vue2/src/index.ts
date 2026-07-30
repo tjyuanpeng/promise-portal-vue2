@@ -1,11 +1,17 @@
 import type { ComponentPublicInstance, CreateComponentPublicInstance, DefineComponent, VueConstructor } from 'vue'
 import Vue, { getCurrentInstance } from 'vue'
 
+interface Context {
+  $resolve: (value?: any) => void
+  $reject: (reason?: any) => void
+  $show: boolean
+}
+
 declare module 'vue' {
-  interface ComponentCustomProperties {
-    $resolve: (value?: any) => void
-    $reject: (reason?: any) => void
-    $show: boolean
+  interface ComponentCustomProperties extends Context {
+  }
+
+  interface CombinedVueInstance extends Context {
   }
 }
 
@@ -67,6 +73,21 @@ export function usePortal(component: AnyComponent, props: Record<string, any> = 
 
   return () => {
     return definePortal(component, props, parent)
+  }
+}
+export function usePortalContext() {
+  const instance = getCurrentInstance()
+
+  if (!instance) {
+    throw new Error('usePortal() must be called inside setup()')
+  }
+
+  const parent = instance.proxy as any as Context
+
+  return {
+    $resolve: parent.$resolve,
+    $reject: parent.$reject,
+    $show: parent.$show,
   }
 }
 

@@ -45,6 +45,9 @@ catalogs:
     vue:
       specifier: ~2.7.16
       version: 2.7.16
+    vue-router:
+      specifier: ^3.6.5
+      version: 3.6.5
 
 importers:
 
@@ -80,6 +83,9 @@ importers:
       vue:
         specifier: 'catalog:'
         version: 2.7.16
+      vue-router:
+        specifier: 'catalog:'
+        version: 3.6.5(vue@2.7.16)
     devDependencies:
       '@vitejs/plugin-vue2':
         specifier: 'catalog:'
@@ -2632,6 +2638,11 @@ packages:
 
   vue-ref@2.0.0:
     resolution: {integrity: sha512-uKNKpFOVeWNqS2mrBZqnpLyXJo5Q+vnkex6JvpENvhXHFNBW/SJTP8vJywLuVT3DpxwXcF9N0dyIiZ4/NpTexQ==}
+
+  vue-router@3.6.5:
+    resolution: {integrity: sha512-VYXZQLtjuvKxxcshuRAwjHnciqZVoXAjTjcqBTz4rKc8qih9g9pI3hbDjmqXaHdgL3v8pV6P8Z335XvHzESxLQ==}
+    peerDependencies:
+      vue: ^2
 
   vue-template-compiler@2.7.16:
     resolution: {integrity: sha512-AYbUWAJHLGGQM7+cNTELw+KsOG9nl2CnSv467WobS5Cv9uk3wFcnr1Etsz2sEIHEZvw1U+o9mRlEO6QbZvUPGQ==}
@@ -5264,6 +5275,10 @@ snapshots:
       - supports-color
 
   vue-ref@2.0.0: {}
+
+  vue-router@3.6.5(vue@2.7.16):
+    dependencies:
+      vue: 2.7.16
 
   vue-template-compiler@2.7.16:
     dependencies:

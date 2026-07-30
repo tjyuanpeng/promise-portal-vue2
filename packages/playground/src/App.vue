@@ -1,19 +1,9 @@
-<script lang="ts">
-import Vue from 'vue'
-import BasicPage from './pages/basic/index.vue'
-
-export default Vue.extend({
-  components: { BasicPage },
-})
-</script>
-
 <template>
-  <BasicPage />
+  <router-view />
 </template>
 
 <style>
-html,
-body {
+html, body {
   margin: 0;
   padding: 0;
 }
