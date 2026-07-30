@@ -1,13 +1,25 @@
 {
-  "name": "promise-portal-vue2",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.34.1"
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "dev": "pnpm -r --parallel run dev",
+    "test": "pnpm --filter promise-portal-vue2 test",
+    "build": "pnpm --filter promise-portal-vue2 run build",
+    "build:playground": "pnpm --filter play-vue2 run build",
+    "publish": "pnpm --filter promise-portal-vue2 publish",
+    "clean": "rm -rf ./**/node_modules; rm -rf ./**/dist"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "catalog:",
+    "@types/node": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-format": "catalog:"
+  }
 }

@@ -1,0 +1,41 @@
+{
+  "name": "promise-portal-vue2",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "use component as a promise-like function (Vue2)",
+  "author": {
+    "name": "tjyuanpeng",
+    "email": "tjyuanpeng@gmail.com"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsdown --watch --tsconfig tsconfig.lib.json",
+    "build": "tsdown --tsconfig tsconfig.lib.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "peerDependencies": {
+    "vue": "^2.6.0"
+  },
+  "devDependencies": {
+    "element-ui": "catalog:",
+    "happy-dom": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vue": "catalog:"
+  }
+}

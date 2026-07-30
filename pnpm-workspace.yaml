@@ -1,0 +1,26 @@
+packages:
+  - packages/*
+
+catalog:
+  '@antfu/eslint-config': ^6.4.1
+  '@types/node': ^24.10.1
+  '@vitejs/plugin-vue2': ^2.0.0
+  '@vue/tsconfig': ^0.8.1
+  ant-design-vue: ^1.7.8
+  element-ui: ^2.15.14
+  eslint: ^9.39.1
+  eslint-plugin-format: ^1.1.0
+  happy-dom: ^20.8.3
+  tsdown: ^0.20.1
+  typescript: ~5.9.3
+  vite: ^7.2.6
+  vue: ~2.7.16
+
+catalogMode: strict
+
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
+trustPolicyExclude:
+  - semver@6.3.1

@@ -1,0 +1,21 @@
+{
+  "name": "play-vue2",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "ant-design-vue": "catalog:",
+    "element-ui": "catalog:",
+    "promise-portal-vue2": "workspace:*",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue2": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
