@@ -6,28 +6,32 @@
 pnpm dev              # parallel: library watch + playground (http://localhost:9002)
 pnpm test             # run vitest in promise-portal-vue2 package
 pnpm build            # build library only (tsdown: ESM + CJS + types)
-pnpm build:playground # build playground for deploy
+pnpm build:playground # build playground for deploy (filter: play-vue2)
+pnpm publish          # publish promise-portal-vue2 to npm
 pnpm lint             # per-package: pnpm --filter promise-portal-vue2 lint
 pnpm typecheck        # per-package: pnpm --filter promise-portal-vue2 typecheck
+pnpm clean            # remove all node_modules and dist directories
 ```
 
 ## Architecture
 
-- Monorepo with pnpm workspaces (catalog mode: strict).
+- Monorepo with pnpm workspaces (catalog mode: strict, shellEmulator: true).
 - Two packages:
-  - `packages/promise-portal-vue2` — the library (Vue 2 plugin)
-  - `packages/playground-vue2` — demo/docs site (deploys to GitHub Pages)
+  - `packages/promise-portal-vue2` — the library (Vue 2)
+  - `packages/playground` — demo/docs site (deploys to GitHub Pages, Vite + @vitejs/plugin-vue2)
 - **Node >= 24** required (`.nvmrc`), **pnpm >= 10** (enforced by `preinstall` script).
 
 ### Library (`promise-portal-vue2`)
 
 Enables using Vue 2 components as a Promise-like function.
 
-- `definePortal(component, props, parent)` — returns a `Promise` that resolves when the component calls `$resolve(value)`.
-- `createPromisePortal()` — Vue plugin.
-- `detectPromisePortalInstance()` — development leak detector for non-released portals.
+APIs:
+- `definePortal(component, props, parent)` — returns a `Promise` that resolves when the component calls `$resolve(value)` or rejects on `$reject(reason)`.
+- `usePortal(component, props)` — composable for use inside `setup()`, returns a function that calls `definePortal` with the current component instance as parent.
+- `detectPromisePortalInstance()` — development leak detector for non-released portals (interval-based, checks for `[data-promise-portal-container]` elements).
 
-Source files: `src/index.ts` re-exports `definePortal`, `detectPromisePortalInstance`.
+Source files:
+- `src/index.ts` — exports `definePortal`, `usePortal`, and re-exports `detectPromisePortalInstance` from `src/detector.ts`.
 
 ### Build
 
@@ -36,8 +40,8 @@ Source files: `src/index.ts` re-exports `definePortal`, `detectPromisePortalInst
 
 ## CI
 
-- `deploy.yml` — push to `main`: build library + playground, deploy to GitHub Pages from `packages/playground-vue2/dist`.
-- `publish.yml` — push tag `v*`: build library, publish to npm with provenance.
+- `deploy.yml` — push to `main`: install → build library → build playground, deploy to GitHub Pages from `packages/playground/dist`.
+- `publish.yml` — push tag `v*`: install → build library, publish to npm with `--provenance`.
 
 ## Style conventions
 

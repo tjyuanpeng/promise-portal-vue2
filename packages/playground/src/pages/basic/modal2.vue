@@ -1,5 +1,6 @@
 <script lang="ts">
-import './t.js'
+import { definePortal } from 'promise-portal-vue2'
+import Modal from './modal.vue'
 
 export default ({
   name: 'Modal2',
@@ -8,6 +9,14 @@ export default ({
     }
   },
   methods: {
+    test2() {
+      this.$resolve()
+    },
+    test() {
+      definePortal(Modal, {}, this).then((v) => {
+        console.log(v)
+      })
+    },
   },
 })
 </script>
@@ -19,5 +28,8 @@ export default ({
     @cancel="$resolve()"
   >
     <p>This is a modal dialog.</p>
+    <a-button @click="test">
+      Open Modal
+    </a-button>
   </a-modal>
 </template>

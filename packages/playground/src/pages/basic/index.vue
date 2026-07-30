@@ -2,6 +2,7 @@
 import { definePortal } from 'promise-portal-vue2'
 import Vue from 'vue'
 import Modal2 from './modal2.vue'
+import Modal3 from './modal3.vue'
 import Modal from './modal.vue'
 
 export default Vue.extend({
@@ -22,6 +23,11 @@ export default Vue.extend({
         console.log(v)
       })
     },
+    openModal3() {
+      definePortal(Modal3, {}, this).then((v) => {
+        console.log(v)
+      })
+    },
   },
 })
 </script>
@@ -34,6 +40,9 @@ export default Vue.extend({
       </el-button>
       <el-button type="primary" @click="openModal2">
         Open Modal 2
+      </el-button>
+      <el-button type="primary" @click="openModal3">
+        Open Modal 3
       </el-button>
     </el-card>
   </div>

@@ -1,9 +1,19 @@
-import type { DefineComponent, VueConstructor } from 'vue'
-import Vue from 'vue'
+import type { ComponentPublicInstance, CreateComponentPublicInstance, DefineComponent, VueConstructor } from 'vue'
+import Vue, { getCurrentInstance } from 'vue'
+
+declare module 'vue' {
+  interface ComponentCustomProperties {
+    $resolve: (value?: any) => void
+    $reject: (reason?: any) => void
+    $show: boolean
+  }
+}
 
 type AnyComponent = VueConstructor | DefineComponent<any, any, any, any, any>
 
-export const definePortal = (component: AnyComponent, props: Record<string, any>, parent: Vue) => {
+type Parent = CreateComponentPublicInstance | ComponentPublicInstance | Vue
+
+export const definePortal = (component: AnyComponent, props: Record<string, any>, parent: Parent) => {
   let modalInstance: any = null
   let reject: any = null
   let isClosing = false
@@ -26,8 +36,9 @@ export const definePortal = (component: AnyComponent, props: Record<string, any>
 
   return new Promise(($resolve: (value?: any) => void, $reject: (reason?: any) => void) => {
     reject = $reject
-    modalInstance = new (Vue.extend(component))({
-      parent,
+    const A = Vue.extend(component)
+    modalInstance = new A({
+      parent: parent as Vue,
       propsData: props,
     })
     modalInstance.$resolve = $resolve
@@ -43,6 +54,20 @@ export const definePortal = (component: AnyComponent, props: Record<string, any>
     parent.$off('hook:beforeDestroy', onParentDestroyed)
     cleanup()
   })
+}
+
+export function usePortal(component: AnyComponent, props: Record<string, any> = {}) {
+  const instance = getCurrentInstance()
+
+  if (!instance) {
+    throw new Error('usePortal() must be called inside setup()')
+  }
+
+  const parent = instance.proxy
+
+  return () => {
+    return definePortal(component, props, parent)
+  }
 }
 
 export * from './detector'
