@@ -90,5 +90,3 @@ export function usePortalContext() {
     $show: parent.$show,
   }
 }
-
-export * from './detector'

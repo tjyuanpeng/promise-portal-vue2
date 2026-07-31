@@ -1,347 +1,261 @@
-# promise-portal
+# promise-portal-vue2
 
-像调用函数一样使用组件
+像调用函数一样使用 Vue 2 组件。打开弹窗、对话框或任意组件 &mdash; 通过 `await` 获取结果。
 
 ## 安装
 
 ```bash
-pnpm add promise-portal
+pnpm add promise-portal-vue2
 ```
 
-## 在线示例
+需要 **Vue >= 2.6.0**（Vue 2.7+ 支持组合式 API）。
 
-[https://tjyuanpeng.github.io/promise-portal](https://tjyuanpeng.github.io/promise-portal)
+## 快速开始
+
+```vue
+<script lang="ts">
+import { definePortal } from 'promise-portal-vue2'
+import ConfirmDialog from './ConfirmDialog.vue'
+
+export default {
+  methods: {
+    async confirmDelete() {
+      try {
+        await definePortal(ConfirmDialog, { title: '确认删除？' }, this)
+        console.log('用户确认')
+      }
+      catch (reason) {
+        console.log('已取消:', reason)
+      }
+    },
+  },
+}
+</script>
+```
+
+Portal 组件通过 `$resolve` / `$reject` 控制结果：
+
+```vue
+<!-- ConfirmDialog.vue -->
+<script lang="ts">
+export default {
+  props: ['title'],
+}
+</script>
+
+<template>
+  <el-dialog :visible="$show" :title="title" @close="$reject('dismissed')">
+    <span slot="footer">
+      <el-button @click="$reject('cancelled')">取消</el-button>
+      <el-button type="primary" @click="$resolve('confirmed')">确定</el-button>
+    </span>
+  </el-dialog>
+</template>
+```
 
 ## 设计动机
 
-类似 element-plus 的实现方式，模态框（Modal）本质是一个 Vue 组件。
-
-在开发过程中，我们希望能像调用函数一样使用模态框：
-
-无需通过 show 这类属性控制显隐状态
-
-结果获取方式更直观
-
-流程控制更简单，生命周期管理更便捷
-
-因此，你可以使用 Promise-Portal 来提升开发效率。
-
-### 改造前
-
-作为组件使用，通过 ref 变量控制显隐状态和生命周期：
+传统方式需要手动维护 `show` 变量和事件监听来控制弹窗：
 
 ```vue
-<script setup lang="ts">
-import Comp from './components/name.vue'
-
-const show = ref(false)
-const onClick = () => {
-  show.value = true
-}
-const onClosed = () => {
-  show.value = false
+<!-- 之前：手动管理显示状态 -->
+<script>
+export default {
+  data() { return { show: false } },
+  methods: {
+    open() { this.show = true },
+    onClosed() { this.show = false },
+  },
 }
 </script>
-
 <template>
-  <el-button @click="onClick">
-    click to open the Dialog
-  </el-button>
-  <Comp v-model="show" @closed="onClosed">
-    a dialog content
-  </Comp>
+  <el-button @click="open">打开</el-button>
+  <Comp v-model="show" @closed="onClosed" />
 </template>
 ```
 
-### 改造后
-
-作为普通的 Promise 风格函数使用，开发体验更友好：
+使用 `promise-portal-vue2`，弹窗流程变为简洁的 `async/await`：
 
 ```vue
-<script setup lang="ts">
-import Comp from './components/name.vue'
+<!-- 之后：Promise 风格 -->
+<script lang="ts">
+import { definePortal } from 'promise-portal-vue2'
+import Comp from './Comp.vue'
 
-const func = definePortal(Comp)
-const onClick = async () => {
-  const data = await func()
-  console.log(data)
+export default {
+  methods: {
+    async open() {
+      const result = await definePortal(Comp, {}, this)
+      console.log(result)
+    },
+  },
 }
 </script>
-
 <template>
-  <el-button @click="onClick">
-    open the Dialog
-  </el-button>
+  <el-button @click="open">打开</el-button>
 </template>
 ```
 
-## 使用场景
+无需 `show` 标记、无需事件绑定。结果直接返回，错误流入 `catch`。
 
-### 在入口文件中创建 promise-portal 实例
+## 使用指南
+
+### 注入属性
+
+调用 `definePortal(component, props, parent)` 后，portal 组件实例会自动获得三个响应式属性：
+
+| 属性       | 类型       | 说明 |
+|------------|-----------|------|
+| `$resolve` | `(value?: any) => void` | 解析 Promise，可选传入返回值 |
+| `$reject`  | `(reason?: any) => void` | 拒绝 Promise，可选传入原因 |
+| `$show`    | `boolean`  | 响应式显示状态（初始为 `true`，销毁前设为 `false`） |
+
+在模板中可以直接使用（`$resolve()`），在脚本中通过 `this.$resolve()` 访问。
+
+### 生命周期
+
+1. `definePortal` 通过 `Vue.extend(component)` 创建组件实例。
+2. 实例挂载并追加到 `document.body`。
+3. `$show` 设置为 `true`，弹窗打开。
+4. 当 `$resolve` 或 `$reject` 被调用时：
+   - `$show` 设置为 `false`。
+   - 等待 300ms（用于退出动画），然后调用 `$destroy()` + `$el.remove()`。
+   - Promise 被解析或拒绝。
+5. 如果父组件在 portal 释放前被销毁，Promise 会被拒绝并返回 `Error('REASON_PARENT_DESTROYED')`。
+
+## API 参考
+
+### `definePortal(component, props, parent)`
+
+创建 portal 并返回 Promise。
+
+| 参数        | 类型                                                                  | 说明 |
+|-------------|-----------------------------------------------------------------------|------|
+| `component` | `VueConstructor \| DefineComponent`                                   | 要渲染的组件 |
+| `props`     | `Record<string, any>`                                                 | 传递给组件的 props |
+| `parent`    | `ComponentPublicInstance \| Vue`                                      | 当前组件实例（`this`） |
+
+返回 `Promise<any>` — 传入 `$resolve()` 的值会被 resolve，传入 `$reject()` 的原因会被 reject。
 
 ```ts
-// ./main.ts
-import { createPromisePortal } from 'promise-portal'
-import { createApp } from 'vue'
+import { definePortal } from 'promise-portal-vue2'
+import MyModal from './MyModal.vue'
 
-const app = createApp(App)
-app.use(createPromisePortal())
+export default {
+  methods: {
+    async openModal() {
+      const result = await definePortal(MyModal, {
+        title: '提示',
+        data: { id: 1 },
+      }, this)
+      console.log('结果:', result)
+    },
+  },
+}
 ```
 
-### 使用 ContextProvider 设置全局上下文
+### `usePortal(component, props?)`
+
+组合式 API 辅助函数。返回一个函数，调用时自动以当前组件实例作为 parent 调用 `definePortal`。
+
+| 参数        | 类型                   | 说明 |
+|-------------|------------------------|------|
+| `component` | `VueConstructor \| DefineComponent` | 要渲染的组件 |
+| `props`     | `Record<string, any>`  | 传递给组件的 props（默认 `{}`） |
+
+返回 `() => Promise<any>` — 调用即可打开 portal。
 
 ```vue
-<!-- ./App.vue -->
-<script setup lang="ts">
-import locale from 'ant-design-vue/es/locale/zh_CN'
-import { ContextProvider } from 'promise-portal'
+<script lang="ts" setup>
+import { usePortal } from 'promise-portal-vue2'
+import FormModal from './FormModal.vue'
+
+const openForm = usePortal(FormModal, {})
+
+async function handleOpen() {
+  try {
+    const data = await openForm()
+    console.log('表单数据:', data)
+  }
+  catch (reason) {
+    console.log('已取消:', reason)
+  }
+}
+</script>
+```
+
+> **注意：** 必须在 `setup()` 或 `<script setup>` 内调用，否则抛出异常。
+
+### `usePortalContext()`
+
+在 portal 组件内部通过 `setup()` 获取 `$resolve`、`$reject` 和 `$show` 属性。
+
+返回 `{ $resolve, $reject, $show }`。
+
+```vue
+<!-- 在 portal 组件内部 -->
+<script lang="ts" setup>
+import { getCurrentInstance, ref } from 'vue'
+import { usePortalContext } from 'promise-portal-vue2'
+
+const instance = getCurrentInstance()
+const { $resolve } = usePortalContext()
+
+const formData = ref({ name: '', email: '' })
+
+function submit() {
+  $resolve({ ...formData.value })
+}
 </script>
 
 <template>
-  <a-config-provider :locale="locale">
-    <ContextProvider>
-      <router-view />
-    </ContextProvider>
-  </a-config-provider>
-</template>
-```
-
-### 在组件中使用 usePortalContext 获取上下文
-
-```vue
-<!-- ./components/comp.vue -->
-<script setup lang="ts">
-import { usePortalContext } from 'promise-portal'
-
-export interface Output {
-  confirm: boolean
-}
-export interface Output {
-  input: string
-}
-const props = defineProps<Input>()
-const { resolve, show } = usePortalContext<Output>()
-const onCancel = () => {
-  resolve({ confirm: false })
-}
-</script>
-
-<template>
-  <a-modal v-model:open="show" @cancel="resolve">
-    {{ props.input }}
+  <a-modal :visible="$show" title="表单" @ok="submit" @cancel="$reject('cancelled')">
+    <input v-model="formData.name" />
+    <input v-model="formData.email" />
   </a-modal>
 </template>
 ```
 
-### 在任意位置定义 portal，然后像 Promise 函数一样使用
+> **注意：** 必须在 `setup()` 或 `<script setup>` 内调用。
 
-```ts
-// ./App.vue
-import { definePortal } from 'promise-portal'
-import Comp, { Input, Output } from './components/comp.vue'
+## 示例
 
-const [func] = definePortal<Output, Input>(Comp)
-const onClick = async () => {
-  const result = await func({
-    input: 'foo',
-  })
-  console.log(result)
-}
+完整可运行示例见 playground，涵盖不同组件声明方式：
+
+| 声明方式 | 说明 |
+|----------|------|
+| `Vue.extend()` | Options API 组件（经典 Vue 2） |
+| `defineComponent()` | Options API，完整 TypeScript 支持 |
+| 纯对象 | 最简形式：`export default { ... }` |
+| `<script setup>` | 组合式 API（Vue 2.7+） |
+
+```bash
+pnpm dev
+# 打开 http://localhost:9002
 ```
 
-## API 参考
+## 工作原理
 
-### createPromisePortal
-
-创建 promise-portal 实例，并挂载到 Vue 实例上
-
-```ts
-const instance = createPromisePortal()
-app.use(instance)
+```
+definePortal(Comp, props, this)
+  │
+  ├─ Vue.extend(Comp)              → 组件构造函数
+  ├─ new A({ parent, propsData })   → 组件实例
+  ├─ 注入 $resolve / $reject / $show
+  ├─ $mount() + 追加到 <body>
+  ├─ $show = true                    → 弹窗打开
+  │
+  │  ... 用户交互 ...
+  │
+  ├─ $resolve(value) ──────────────→ Promise resolve
+  │  或 $reject(reason) ───────────→ Promise reject
+  │
+  └─ 清理:
+       $show = false
+       等待 300ms（退出动画）
+       $destroy() + $el.remove()
 ```
 
-### ContextProvider
+## License
 
-用于全局设置上下文的组件
-
-```vue
-<script setup lang="ts">
-import locale from 'ant-design-vue/es/locale/zh_CN'
-import { ContextProvider } from 'promise-portal'
-</script>
-
-<template>
-  <a-config-provider :locale="locale">
-    <ContextProvider>
-      <router-view />
-    </ContextProvider>
-  </a-config-provider>
-</template>
-```
-
-### usePortalContext
-
-一个 Vue 组合式 API，用于在 portal 组件中获取上下文
-
-```ts
-const { resolve } = usePortalContext()
-
-// 完整参数说明
-const {
-  resolve, // Promise 解析处理器
-  reject, // Promise 拒绝处理器
-  target, // 目标元素，'appendTo' 指定的元素，默认值是document.body
-  el, // 门户基础元素，会被注入到 'appendTo' 指定的元素中
-  vnode, // 门户基础 Vue 虚拟节点
-  unmountDelay, // 门户卸载延迟时间的响应式变量（毫秒）
-  show, // 模态框显示状态的响应式变量（由门户控制）
-} = usePortalContext({
-  // 门户卸载延迟时间（毫秒），通常用于处理动画效果
-  unmountDelay: 200,
-
-  // show 响应式变量的初始值（默认值为 true）
-  initialShowValue: true,
-})
-```
-
-你可以通过 TypeScript 泛型指定 Promise 成功回调的返回结果类型：
-
-```ts
-export interface Output {
-  confirm: boolean
-}
-const { resolve } = usePortalContext<Output>()
-resolve({
-  confirm: true,
-})
-```
-
-你可以使用 show 变量控制模态框组件的显隐：
-
-在执行卸载逻辑前，show.value 会被设置为 false；
-
-可通过 initialShowValue 设置初始值，默认初始值为 true。
-
-```vue
-<script setup lang="ts">
-const { resolve, show } = usePortalContext<Output>({ initialShowValue: true })
-</script>
-
-<template>
-  <a-modal v-model:open="show" @cancel="resolve" />
-</template>
-```
-
-### definePortal
-
-定义一个 portal，返回一个 portal 函数 和 ContextHolder 组件
-
-ContextHolder 组件用于从当前渲染树中获取provides
-
-```ts
-import Comp from './component.vue'
-
-const [portalFunc, ContextHolder] = definePortal(Comp)
-portalFunc()
-
-// <ContextHolder />
-```
-
-### 泛型参数
-
-你可以通过泛型参数指定 portal 函数的输入参数类型和输出结果类型：
-
-```ts
-// component.vue
-// App.vue
-import Comp, { Input, Output } from './component.vue'
-
-export interface Input {
-  firstName: string
-  lastName: string
-}
-
-export interface Output {
-  fullName: string
-  confirm: boolean
-}
-
-const props = defineProps<Input>()
-const { resolve } = usePortalContext<Output>()
-const portal = definePortal<Output, Input>(Comp)
-const output = await portal({
-  firstName: 'joe',
-  lastName: 'watson',
-})
-```
-
-### 定义无参数 portal
-
-你可以定义一个无参数的 portal，只需要将泛型参数设置为 void：
-
-```ts
-// component.vue
-// App.vue
-import Comp, { Output } from './component.vue'
-
-export interface Output {
-  fullName: string
-  confirm: boolean
-}
-
-const { resolve } = usePortalContext<Output>()
-const portal = definePortal<Output, void>(Comp)
-const output = await portal() // only allow empty parameter
-```
-
-### 定义 portal 选项
-
-你可以通过第二个参数传递选项来定义 portal：
-
-```ts
-definePortal(Comp, {
-  // 门户卸载延迟时间（毫秒），通常用于处理动画效果
-  unmountDelay: 200,
-
-  // show 响应式变量的初始值（默认值为 true）
-  initialShowValue: true,
-
-  // 可以是一个 DOM 元素、CSS 选择器、Ref 值或一个返回 DOM 元素的函数
-  // 门户元素要追加到的 DOM 元素或 CSS 选择器（默认值为 document.body）
-  appendTo: document.body,
-})
-```
-
-### 检测未释放的 promise-portal 实例
-
-检测是否有未正确释放的 promise-portal 实例
-
-```ts
-// main.ts
-if (import.meta.env.DEV) {
-  detectPromisePortalInstance()
-}
-```
-
-检测未释放的 promise-portal 实例时，返回一个函数，用于停止检测
-
-```ts
-const stopHandler = detectPromisePortalInstance()
-stopHandler() // 停止检测
-```
-
-你可以通过传递选项来自定义检测提示信息
-
-```ts
-detectPromisePortalInstance({
-  text: 'Detected unreleased promise-portal instance',
-  style: ' /styles you like/ ',
-})
-```
-
-# 致谢
-
-- [react portal](https://reactjs.org/docs/portals.html)
-- [vue teleport](https://vuejs.org/guide/built-ins/teleport.html)
-- [@filez/portal](https://github.com/lenovo-filez/portal)
-- [promise-modal](https://github.com/liruifengv/promise-modal)
+MIT

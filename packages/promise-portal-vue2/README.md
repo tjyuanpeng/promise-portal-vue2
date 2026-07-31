@@ -1,339 +1,261 @@
-# promise-portal
+# promise-portal-vue2
 
-use component as a promisd-like function
+Use Vue 2 components as Promise-like functions. Open a dialog, modal, or any component &mdash; and `await` its result.
 
 ## Installation
 
 ```bash
-pnpm add promise-portal
+pnpm add promise-portal-vue2
 ```
 
-## Online Demo
+Requires **Vue >= 2.6.0** (Vue 2.7+ for Composition API support).
 
-[https://tjyuanpeng.github.io/promise-portal](https://tjyuanpeng.github.io/promise-portal)
+## Quick Start
+
+```vue
+<script lang="ts">
+import { definePortal } from 'promise-portal-vue2'
+import ConfirmDialog from './ConfirmDialog.vue'
+
+export default {
+  methods: {
+    async confirmDelete() {
+      try {
+        await definePortal(ConfirmDialog, { title: 'Delete?' }, this)
+        console.log('user confirmed')
+      }
+      catch (reason) {
+        console.log('cancelled:', reason)
+      }
+    },
+  },
+}
+</script>
+```
+
+The portal component uses `$resolve` / `$reject` to control the result:
+
+```vue
+<!-- ConfirmDialog.vue -->
+<script lang="ts">
+export default {
+  props: ['title'],
+}
+</script>
+
+<template>
+  <el-dialog :visible="$show" :title="title" @close="$reject('dismissed')">
+    <span slot="footer">
+      <el-button @click="$reject('cancelled')">Cancel</el-button>
+      <el-button type="primary" @click="$resolve('confirmed')">OK</el-button>
+    </span>
+  </el-dialog>
+</template>
+```
 
 ## Motivation
 
-like element-plus, the modal is a vue component
-
-in development, we want use modal like a function
-
-no `show` property to control show/hide, gettting result is more explicit
-
-easier to control workflow, and easier to handle life-cycles
-
-so you can use Promise-Portal to save your life-time
-
-### before
-
-use as a component, with ref value to control visibility and life-cycles
+Traditionally, dialogs in Vue are controlled via a `show` ref and event listeners:
 
 ```vue
-<script setup lang="ts">
-import Comp from './components/name.vue'
-
-const show = ref(false)
-const onClick = () => {
-  show.value = true
-}
-const onClosed = () => {
-  show.value = false
+<!-- Before: imperative visibility management -->
+<script>
+export default {
+  data() { return { show: false } },
+  methods: {
+    open() { this.show = true },
+    onClosed() { this.show = false },
+  },
 }
 </script>
-
 <template>
-  <el-button @click="onClick">
-    click to open the Dialog
-  </el-button>
-  <Comp v-model="show" @closed="onClosed">
-    a dialog content
-  </Comp>
+  <el-button @click="open">Open</el-button>
+  <Comp v-model="show" @closed="onClosed" />
 </template>
 ```
 
-### after
-
-use as a normal promise-style function, so happy to develop
+With `promise-portal-vue2`, the dialog flow becomes a simple `async/await` expression:
 
 ```vue
-<script setup lang="ts">
-import Comp from './components/name.vue'
+<!-- After: Promise-style -->
+<script lang="ts">
+import { definePortal } from 'promise-portal-vue2'
+import Comp from './Comp.vue'
 
-const func = definePortal(Comp)
-const onClick = async () => {
-  const data = await func()
-  console.log(data)
+export default {
+  methods: {
+    async open() {
+      const result = await definePortal(Comp, {}, this)
+      console.log(result)
+    },
+  },
 }
 </script>
-
 <template>
-  <el-button @click="onClick">
-    open the Dialog
-  </el-button>
+  <el-button @click="open">Open</el-button>
 </template>
 ```
 
-## Use Case
+No `show` flag, no event wiring. Results are returned directly. Error paths flow into `catch`.
 
-### create promise-portal instance in the entry file
+## Usage Guide
+
+### Injected Properties
+
+When you call `definePortal(component, props, parent)`, the portal component instance receives three reactive properties:
+
+| Property   | Type      | Description |
+|------------|-----------|-------------|
+| `$resolve` | `(value?: any) => void` | Resolve the Promise with an optional value |
+| `$reject`  | `(reason?: any) => void` | Reject the Promise with an optional reason |
+| `$show`    | `boolean`  | Reactive visibility flag (starts `true`, set to `false` before destroy) |
+
+These are accessible in both templates (`$resolve()`) and scripts (`this.$resolve()`).
+
+### Lifecycle
+
+1. `definePortal` creates a Vue instance via `Vue.extend(component)`.
+2. The instance is mounted and appended to `document.body`.
+3. `$show` is set to `true`, triggering the dialog to open.
+4. When `$resolve` or `$reject` is called:
+   - `$show` is set to `false`.
+   - After 300ms (for exit animation), `$destroy()` + `$el.remove()` are called.
+   - The Promise resolves or rejects.
+5. If the parent component is destroyed before the portal is released, the Promise is rejected with `Error('REASON_PARENT_DESTROYED')`.
+
+## API Reference
+
+### `definePortal(component, props, parent)`
+
+Creates a portal and returns a `Promise`.
+
+| Parameter   | Type                                                                  | Description |
+|-------------|-----------------------------------------------------------------------|-------------|
+| `component` | `VueConstructor \| DefineComponent`                                   | The component to render as a portal |
+| `props`     | `Record<string, any>`                                                 | Props passed to the component |
+| `parent`    | `ComponentPublicInstance \| Vue`                                      | The current component instance (`this`) |
+
+Returns `Promise<any>` — resolves with the value passed to `$resolve()`, rejects with the reason passed to `$reject()`.
 
 ```ts
-// ./main.ts
-import { createPromisePortal } from 'promise-portal'
-import { createApp } from 'vue'
+import { definePortal } from 'promise-portal-vue2'
+import MyModal from './MyModal.vue'
 
-const app = createApp(App)
-app.use(createPromisePortal())
+export default {
+  methods: {
+    async openModal() {
+      const result = await definePortal(MyModal, {
+        title: 'Hello',
+        data: { id: 1 },
+      }, this)
+      console.log('resolved:', result)
+    },
+  },
+}
 ```
 
-### use `ContextProvider` to set context globally
+### `usePortal(component, props?)`
+
+Composition API helper. Returns a thunk that calls `definePortal` with the current component as parent.
+
+| Parameter   | Type                   | Description |
+|-------------|------------------------|-------------|
+| `component` | `VueConstructor \| DefineComponent` | The component to render |
+| `props`     | `Record<string, any>`  | Props passed to the component (default `{}`) |
+
+Returns `() => Promise<any>` — a function you call to open the portal.
 
 ```vue
-<!-- ./App.vue -->
-<script setup lang="ts">
-import locale from 'ant-design-vue/es/locale/zh_CN'
-import { ContextProvider } from 'promise-portal'
+<script lang="ts" setup>
+import { usePortal } from 'promise-portal-vue2'
+import FormModal from './FormModal.vue'
+
+const openForm = usePortal(FormModal, {})
+
+async function handleOpen() {
+  try {
+    const data = await openForm()
+    console.log('form data:', data)
+  }
+  catch (reason) {
+    console.log('cancelled:', reason)
+  }
+}
+</script>
+```
+
+> **Note:** Must be called inside `setup()` or `<script setup>`. Throws otherwise.
+
+### `usePortalContext()`
+
+Access the portal's `$resolve`, `$reject`, and `$show` properties from within a portal component's `setup()`.
+
+Returns `{ $resolve, $reject, $show }`.
+
+```vue
+<!-- Inside a portal component -->
+<script lang="ts" setup>
+import { getCurrentInstance } from 'vue'
+import { usePortalContext } from 'promise-portal-vue2'
+
+const instance = getCurrentInstance()
+const { $resolve } = usePortalContext()
+
+const formData = ref({ name: '', email: '' })
+
+function submit() {
+  $resolve({ ...formData.value })
+}
 </script>
 
 <template>
-  <a-config-provider :locale="locale">
-    <ContextProvider>
-      <router-view />
-    </ContextProvider>
-  </a-config-provider>
-</template>
-```
-
-### in component, use `usePortalContext` to use portal context
-
-```vue
-<!-- ./components/comp.vue -->
-<script setup lang="ts">
-import { usePortalContext } from 'promise-portal'
-
-export interface Output {
-  confirm: boolean
-}
-export interface Output {
-  input: string
-}
-const props = defineProps<Input>()
-const { resolve, show } = usePortalContext<Output>()
-const onCancel = () => {
-  resolve({ confirm: false })
-}
-</script>
-
-<template>
-  <a-modal v-model:open="show" @cancel="resolve">
-    {{ props.input }}
+  <a-modal :visible="$show" title="Form" @ok="submit" @cancel="$reject('cancelled')">
+    <input v-model="formData.name" />
+    <input v-model="formData.email" />
   </a-modal>
 </template>
 ```
 
-### define portal in anywhere, then use it like a promise-style function
+> **Note:** Must be called inside `setup()` or `<script setup>`.
 
-```ts
-// ./App.vue
-import { definePortal } from 'promise-portal'
-import Comp, { Input, Output } from './components/comp.vue'
+## Examples
 
-const [func] = definePortal<Output, Input>(Comp)
-const onClick = async () => {
-  const result = await func({
-    input: 'foo',
-  })
-  console.log(result)
-}
+See the playground for complete, runnable examples covering different component declaration styles:
+
+| Style | Description |
+|-------|-------------|
+| `Vue.extend()` | Options API component (classic Vue 2) |
+| `defineComponent()` | Options API with full TypeScript support |
+| Plain object | Simplest: `export default { ... }` |
+| `<script setup>` | Composition API (Vue 2.7+) |
+
+```bash
+pnpm dev
+# open http://localhost:9002
 ```
 
-## API Reference
+## How It Works
 
-### createPromisePortal
-
-create promise-portal instance, set to vue instance
-
-```ts
-const instance = createPromisePortal()
-app.use(instance)
+```
+definePortal(Comp, props, this)
+  │
+  ├─ Vue.extend(Comp)              → component constructor
+  ├─ new A({ parent, propsData })   → component instance
+  ├─ inject $resolve / $reject / $show
+  ├─ $mount() + append to <body>
+  ├─ $show = true                    → dialog opens
+  │
+  │  ... user interacts ...
+  │
+  ├─ $resolve(value) ──────────────→ Promise resolves
+  │  or $reject(reason) ───────────→ Promise rejects
+  │
+  └─ cleanup:
+       $show = false
+       wait 300ms (exit animation)
+       $destroy() + $el.remove()
 ```
 
-### ContextProvider
+## License
 
-a component to set context globally
-
-```vue
-<script setup lang="ts">
-import locale from 'ant-design-vue/es/locale/zh_CN'
-import { ContextProvider } from 'promise-portal'
-</script>
-
-<template>
-  <a-config-provider :locale="locale">
-    <ContextProvider>
-      <router-view />
-    </ContextProvider>
-  </a-config-provider>
-</template>
-```
-
-### usePortalContext
-
-a vue composition api, use in portal component to get context of portal
-
-```ts
-const { resolve } = usePortalContext()
-
-// detail
-const {
-  resolve, // promise resolve handler
-  reject, // promise reject handler
-  target, // portal target element which is 'appendTo' element, default is 'document.body'
-  el, // portal base element, injected into 'appendTo' element
-  vnode, // portal base vue vnode
-  unmountDelay, // Ref for portal unmount delay (ms)
-  show, // Ref for modal display state (controlled by portal)
-} = usePortalContext({
-  // Unmount delay (ms) for portal, usually for animation effects
-  unmountDelay: 200,
-
-  // Initial value for the show ref (defaults to true)
-  initialShowValue: true,
-})
-```
-
-you can use typescript generic types to promise fulfilled result
-
-```ts
-export interface Output {
-  confirm: boolean
-}
-const { resolve } = usePortalContext<Output>()
-resolve({
-  confirm: true,
-})
-```
-
-you can use `show` to control modal component
-
-before `unmount`, `show.value = false` will be setted
-
-use `initialShowValue` to set inital value, default inital value is `true`
-
-```vue
-<script setup lang="ts">
-const { resolve, show } = usePortalContext<Output>({ initialShowValue: true })
-</script>
-
-<template>
-  <a-modal v-model:open="show" @cancel="resolve" />
-</template>
-```
-
-### definePortal
-
-define a portal, return a portal function & ContextHolder component
-
-ContextHolder is used to get context from current render tree
-
-```ts
-import Comp from './component.vue'
-
-const [portalFunc, ContextHolder] = definePortal(Comp)
-portalFunc()
-
-// <ContextHolder />
-```
-
-you can define generic types to check input object and output object
-
-```ts
-// component.vue
-// App.vue
-import Comp, { Input, Output } from './component.vue'
-
-export interface Input {
-  firstName: string
-  lastName: string
-}
-
-export interface Output {
-  fullName: string
-  confirm: boolean
-}
-
-const props = defineProps<Input>()
-const { resolve } = usePortalContext<Output>()
-const portal = definePortal<Output, Input>(Comp)
-const output = await portal({
-  firstName: 'joe',
-  lastName: 'watson',
-})
-```
-
-define a portal with empty parameter
-
-```ts
-// component.vue
-// App.vue
-import Comp, { Output } from './component.vue'
-
-export interface Output {
-  fullName: string
-  confirm: boolean
-}
-
-const { resolve } = usePortalContext<Output>()
-const portal = definePortal<Output, void>(Comp)
-const output = await portal() // only allow empty parameter
-```
-
-you can set a options to definePortal
-
-```ts
-definePortal(Comp, {
-  // Unmount delay (ms) for portal, usually for animation effects
-  unmountDelay: 200,
-
-  // Initial value for the show ref (defaults to true)
-  initialShowValue: true,
-
-  // a dom element or CSS selector or Ref value or a function returing a dom element,
-  // append the portal element to (defaults to document.body)
-  appendTo: document.body,
-})
-```
-
-### detectPromisePortalInstance
-
-detect whether the instance has been properly destroyed
-
-```ts
-// main.ts
-if (import.meta.env.DEV) {
-  detectPromisePortalInstance()
-}
-```
-
-the return value is a function to stop detecting
-
-```ts
-const stopHandler = detectPromisePortalInstance()
-stopHandler() // stop detecting
-```
-
-You can pass in other values to customize it.
-
-```ts
-detectPromisePortalInstance({
-  text: 'Detected unreleased promise-portal instance',
-  style: ' /styles you like/ ',
-})
-```
-
-# Acknowledgements
-
-- [react portal](https://reactjs.org/docs/portals.html)
-- [vue teleport](https://vuejs.org/guide/built-ins/teleport.html)
-- [@filez/portal](https://github.com/lenovo-filez/portal)
-- [promise-modal](https://github.com/liruifengv/promise-modal)
+MIT

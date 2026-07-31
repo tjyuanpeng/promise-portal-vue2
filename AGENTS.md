@@ -28,10 +28,10 @@ Enables using Vue 2 components as a Promise-like function.
 APIs:
 - `definePortal(component, props, parent)` — returns a `Promise` that resolves when the component calls `$resolve(value)` or rejects on `$reject(reason)`.
 - `usePortal(component, props)` — composable for use inside `setup()`, returns a function that calls `definePortal` with the current component instance as parent.
-- `detectPromisePortalInstance()` — development leak detector for non-released portals (interval-based, checks for `[data-promise-portal-container]` elements).
+- `usePortalContext()` — composable for use inside portal component's `setup()`, returns `{ $resolve, $reject, $show }`.
 
 Source files:
-- `src/index.ts` — exports `definePortal`, `usePortal`, and re-exports `detectPromisePortalInstance` from `src/detector.ts`.
+- `src/index.ts` — exports `definePortal`, `usePortal`, and `usePortalContext`.
 
 ### Build
 
